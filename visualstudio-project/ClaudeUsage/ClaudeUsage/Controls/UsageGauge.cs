@@ -79,7 +79,7 @@ public class UsageGauge : FrameworkElement
         var cy = labelAreaH + radius + arcThick / 2;
 
         var valueTextY = cy + radius * 0.7;
-        var resetTextY = valueTextY + 16;
+        var resetTextY = valueTextY + 18;
 
         // Draw
         DrawLabel(dc, cx, labelFontSize, dark, labelFontSize, dpi);
@@ -268,7 +268,7 @@ public class UsageGauge : FrameworkElement
     {
         var color = GetColorForValue(value);
         var brush = new SolidColorBrush(color);
-        var ft = new FormattedText($"{(int)value}%", CultureInfo.CurrentCulture, System.Windows.FlowDirection.LeftToRight, SemiBoldTypeface, 20, brush, dpi);
+        var ft = new FormattedText($"{(int)value}%", CultureInfo.CurrentCulture, System.Windows.FlowDirection.LeftToRight, SemiBoldTypeface, 24, brush, dpi);
         dc.DrawText(ft, new Point(cx - ft.Width / 2, y - ft.Height / 2));
     }
 

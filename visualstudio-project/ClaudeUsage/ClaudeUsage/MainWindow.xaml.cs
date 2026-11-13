@@ -87,15 +87,18 @@ public partial class MainWindow : FluentWindow
         WeeklyGauge.IsDarkTheme = isDark;
     }
 
-    public void ShowWithAnimation(double targetLeft, double bottomEdge)
+    public void ShowWithAnimation(double rightEdge, double bottomEdge)
     {
-        Left = targetLeft;
-
-        // Show off-screen first to measure content height
+        // Show off-screen first to measure content size
         Top = bottomEdge;
         Opacity = 0;
         Show();
         UpdateLayout();
+
+        // Position by the real width. The Wpf.Ui window style enforces MinWidth=460,
+        // so the declared Width is not reliable before the first layout pass —
+        // using it made the first popup stick out past the right screen edge.
+        Left = rightEdge - ActualWidth;
 
         // Now we know ActualHeight — position window so bottom aligns with bottomEdge
         _bottomEdge = bottomEdge - 10;

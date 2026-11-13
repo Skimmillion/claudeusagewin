@@ -581,9 +581,7 @@ public partial class App : System.Windows.Application
 
         // Position near the tray icon (bottom-right of screen)
         var workArea = System.Windows.SystemParameters.WorkArea;
-        var targetLeft = workArea.Right - _mainWindow.Width - 10;
-
-        _mainWindow.ShowWithAnimation(targetLeft, workArea.Bottom);
+        _mainWindow.ShowWithAnimation(workArea.Right - 10, workArea.Bottom);
     }
 
     public async Task RefreshUsageData()
