@@ -362,17 +362,27 @@ public partial class App : System.Windows.Application
         oldIcon?.Dispose();
     }
 
+    private bool _handlingThemeChange;
+
     private void OnThemeChanged(Wpf.Ui.Appearance.ApplicationTheme currentTheme, System.Windows.Media.Color systemAccent)
     {
-        // Apply the new theme to app-level resources (context menu, etc.)
+        // Do NOT call ApplicationThemeManager.Apply() here: it raises Changed again,
+        // which re-enters this handler endlessly and kills the process with
+        // StackOverflowException. The theme is already applied to app resources by
+        // the time Changed fires (SystemThemeWatcher -> ApplySystemTheme -> Apply).
+        if (_handlingThemeChange) return;
+        _handlingThemeChange = true;
         try
         {
-            ApplicationThemeManager.Apply(currentTheme);
             CreateContextMenu();
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Theme apply error: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Theme change error: {ex.Message}");
+        }
+        finally
+        {
+            _handlingThemeChange = false;
         }
 
         // Refresh the icon with current usage data to apply new theme colors

@@ -20,6 +20,7 @@ public partial class MainWindow : FluentWindow
     private double _bottomEdge;
     private UsageData? _currentData;
     private readonly DispatcherTimer _countdownTimer;
+    private readonly HashSet<System.Windows.Controls.Border> _barsWithSizeHandler = new();
 
     public MainWindow()
     {
@@ -248,12 +249,20 @@ public partial class MainWindow : FluentWindow
         var parent = fillBar.Parent as System.Windows.Controls.Grid;
         if (parent == null) return;
 
-        // Bind fill width to parent width * percentage
-        parent.SizeChanged += (s, e) =>
+        // Remember the percentage on the bar and subscribe to SizeChanged only once.
+        // Previously a new handler was added on every data refresh, so handlers piled
+        // up for the whole lifetime of the app.
+        fillBar.Tag = Math.Clamp(percent, 0, 100);
+        if (!_barsWithSizeHandler.Contains(fillBar))
         {
-            fillBar.Width = parent.ActualWidth * Math.Clamp(percent, 0, 100) / 100.0;
-        };
-        fillBar.Width = parent.ActualWidth * Math.Clamp(percent, 0, 100) / 100.0;
+            _barsWithSizeHandler.Add(fillBar);
+            parent.SizeChanged += (s, e) =>
+            {
+                var pct = fillBar.Tag is int p ? p : 0;
+                fillBar.Width = parent.ActualWidth * pct / 100.0;
+            };
+        }
+        fillBar.Width = parent.ActualWidth * (int)fillBar.Tag / 100.0;
     }
 
     private void UpdateBarGradient(System.Windows.Media.GradientStop gradStart, System.Windows.Media.GradientStop gradEnd, int percent)
