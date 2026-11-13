@@ -309,38 +309,70 @@ public partial class App : System.Windows.Application
 
     private Drawing.Icon CreateFallbackIcon(int percentage, Drawing.Color bgColor)
     {
-        const int size = 32;
-        const int cornerRadius = 6;
+        // Render at the real tray icon size (16px at 100% scaling) instead of 32px:
+        // the shell shrinks a 32px icon by half, which made the digits tiny.
+        var size = Math.Max(16, Forms.SystemInformation.SmallIconSize.Width);
+        var cornerRadius = Math.Max(3, size / 4);
 
         using var bitmap = new Drawing.Bitmap(size, size);
         using var g = Drawing.Graphics.FromImage(bitmap);
 
         g.SmoothingMode = Drawing.Drawing2D.SmoothingMode.HighQuality;
-        g.TextRenderingHint = Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+        g.PixelOffsetMode = Drawing.Drawing2D.PixelOffsetMode.HighQuality;
         g.Clear(Drawing.Color.Transparent);
 
-        // Draw rounded rectangle background
+        // Rounded square background, edge to edge
         using var bgBrush = new Drawing.SolidBrush(bgColor);
         using var path = new Drawing.Drawing2D.GraphicsPath();
-        var rect = new Drawing.Rectangle(2, 2, size - 4, size - 4);
-        path.AddArc(rect.X, rect.Y, cornerRadius, cornerRadius, 180, 90);
-        path.AddArc(rect.Right - cornerRadius, rect.Y, cornerRadius, cornerRadius, 270, 90);
-        path.AddArc(rect.Right - cornerRadius, rect.Bottom - cornerRadius, cornerRadius, cornerRadius, 0, 90);
-        path.AddArc(rect.X, rect.Bottom - cornerRadius, cornerRadius, cornerRadius, 90, 90);
+        var d = cornerRadius * 2;
+        path.AddArc(0, 0, d, d, 180, 90);
+        path.AddArc(size - d, 0, d, d, 270, 90);
+        path.AddArc(size - d, size - d, d, d, 0, 90);
+        path.AddArc(0, size - d, d, d, 90, 90);
         path.CloseFigure();
         g.FillPath(bgBrush, path);
 
-        // Draw percentage number centered
-        using var textFont = new Drawing.Font("Segoe UI Semibold", 10, Drawing.FontStyle.Regular);
-        using var textBrush = new Drawing.SolidBrush(Drawing.Color.White);
+        // Digits as an outline scaled to fill the square. A condensed face lets
+        // two digits be much taller than with a regular-width font.
+        var text = Math.Clamp(percentage, 0, 999).ToString();
+        using var family = GetIconFontFamily();
+        using var textPath = new Drawing.Drawing2D.GraphicsPath();
+        textPath.AddString(text, family, (int)Drawing.FontStyle.Regular, 100f,
+            Drawing.PointF.Empty, Drawing.StringFormat.GenericTypographic);
 
-        var text = percentage.ToString();
-        var textSize = g.MeasureString(text, textFont);
-        var textX = (size - textSize.Width) / 2 + 1;
-        var textY = (size - textSize.Height) / 2 + 1;
-        g.DrawString(text, textFont, textBrush, textX, textY);
+        var b = textPath.GetBounds();
+        if (b.Width > 0 && b.Height > 0)
+        {
+            var maxW = size - 1.5f;
+            var maxH = size - 3f;
+            var scale = Math.Min(maxW / b.Width, maxH / b.Height);
+            using var m = new Drawing.Drawing2D.Matrix();
+            m.Translate(-(b.X + b.Width / 2), -(b.Y + b.Height / 2), Drawing.Drawing2D.MatrixOrder.Append);
+            m.Scale(scale, scale, Drawing.Drawing2D.MatrixOrder.Append);
+            m.Translate(size / 2f, size / 2f, Drawing.Drawing2D.MatrixOrder.Append);
+            textPath.Transform(m);
+
+            using var textBrush = new Drawing.SolidBrush(Drawing.Color.White);
+            g.FillPath(textBrush, textPath);
+        }
 
         return Drawing.Icon.FromHandle(bitmap.GetHicon());
+    }
+
+    private static Drawing.FontFamily GetIconFontFamily()
+    {
+        // Bahnschrift ships with Windows 10 1709+; fall back to Segoe UI.
+        foreach (var name in new[] { "Bahnschrift SemiBold Condensed", "Bahnschrift SemiBold", "Segoe UI Semibold" })
+        {
+            try
+            {
+                var f = new Drawing.FontFamily(name);
+                if (f.IsStyleAvailable(Drawing.FontStyle.Regular)) return f;
+                f.Dispose();
+            }
+            catch (ArgumentException) { }
+        }
+        return new Drawing.FontFamily(Drawing.Text.GenericFontFamilies.SansSerif);
     }
 
     private Drawing.Color GetColorForUsage(double utilization)
