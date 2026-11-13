@@ -9,6 +9,16 @@ public static class IconMaker {
     p.AddArc(x, y, d, d, 180, 90); p.AddArc(x + w - d, y, d, d, 270, 90);
     p.AddArc(x + w - d, y + h - d, d, d, 0, 90); p.AddArc(x, y + h - d, d, d, 90, 90); p.CloseFigure(); return p;
   }
+  // Tapered ray from radius r0 to r1 along angle deg, widths w0 -> w1, rounded ends.
+  static void Spoke(Graphics g, Brush b, float cx, float cy, float r0, float r1, float w0, float w1, float deg) {
+    var a = P(cx, cy, r0, deg); var c = P(cx, cy, r1, deg);
+    using (var path = new GraphicsPath()) {
+      path.AddPolygon(new[] { P(a.X, a.Y, w0 / 2, deg - 90), P(c.X, c.Y, w1 / 2, deg - 90), P(c.X, c.Y, w1 / 2, deg + 90), P(a.X, a.Y, w0 / 2, deg + 90) });
+      g.FillPath(b, path);
+    }
+    g.FillEllipse(b, a.X - w0 / 2, a.Y - w0 / 2, w0, w0);
+    g.FillEllipse(b, c.X - w1 / 2, c.Y - w1 / 2, w1, w1);
+  }
   public static Bitmap Draw(int s) {
     var bmp = new Bitmap(s, s); var g = Graphics.FromImage(bmp);
     g.SmoothingMode = SmoothingMode.AntiAlias; g.PixelOffsetMode = PixelOffsetMode.HighQuality; g.Clear(Color.Transparent);
@@ -28,33 +38,28 @@ public static class IconMaker {
         g.DrawArc(pen, cx - r, cy - r, 2 * r, 2 * r, start + i * seg + (i > 0 ? gap / 2 : 0), seg - (i > 0 && i < cols.Length - 1 ? gap : gap / 2));
       }
     }
-    // Needle deep in the red zone
+    // Starburst of terracotta rays in the middle; one red ray is the needle.
     float needleDeg = start + sweep * 0.9f;
-    float len = r * (tiny ? 0.95f : 0.88f), baseW = s * (tiny ? 0.07f : 0.05f);
-    var tip = P(cx, cy, len, needleDeg); var l = P(cx, cy, baseW, needleDeg - 90); var rr = P(cx, cy, baseW, needleDeg + 90);
-    var back = P(cx, cy, baseW * 1.2f, needleDeg + 180);
-    using (var path = new GraphicsPath()) {
-      path.AddPolygon(new[] { tip, rr, back, l });
-      using (var nb = new SolidBrush(Color.FromArgb(245, 245, 250))) g.FillPath(nb, path);
-    }
-    float hub = s * (tiny ? 0.1f : 0.075f);
-    using (var hb = new SolidBrush(Color.FromArgb(245, 245, 250))) g.FillEllipse(hb, cx - hub, cy - hub, hub * 2, hub * 2);
-    using (var hb2 = new SolidBrush(Color.FromArgb(239, 58, 58))) g.FillEllipse(hb2, cx - hub * 0.45f, cy - hub * 0.45f, hub * 0.9f, hub * 0.9f);
-    if (!tiny) {
-      // Ticks
-      using (var tp = new Pen(Color.FromArgb(120, 255, 255, 255), Math.Max(1, s * 0.012f))) {
-        tp.StartCap = tp.EndCap = LineCap.Round;
-        for (int i = 0; i <= 10; i++) { float a = start + sweep * i / 10f; g.DrawLine(tp, P(cx, cy, r - thick * 0.95f, a), P(cx, cy, r - thick * (i % 5 == 0 ? 1.7f : 1.35f), a)); }
-      }
-      // Little flame at the bottom: "limit is burning"
-      float fx = cx, fy = s * 0.9f, fh = s * 0.2f, fw = s * 0.13f;
-      using (var flame = new GraphicsPath()) {
-        flame.AddBezier(fx, fy, fx - fw, fy - fh * 0.15f, fx - fw * 0.75f, fy - fh * 0.65f, fx - fw * 0.1f, fy - fh);
-        flame.AddBezier(fx - fw * 0.1f, fy - fh, fx + fw * 0.05f, fy - fh * 0.6f, fx + fw * 0.35f, fy - fh * 0.75f, fx + fw * 0.45f, fy - fh * 0.55f);
-        flame.AddBezier(fx + fw * 0.45f, fy - fh * 0.55f, fx + fw * 1.0f, fy - fh * 0.3f, fx + fw * 0.8f, fy, fx, fy);
-        using (var fb = new LinearGradientBrush(new PointF(0, fy - fh), new PointF(0, fy), Color.FromArgb(255, 220, 60), Color.FromArgb(239, 58, 58))) g.FillPath(fb, flame);
+    var terra = Color.FromArgb(217, 119, 87);
+    var red = Color.FromArgb(239, 58, 58);
+    bool small = s <= 48;
+    int rays = tiny ? 7 : small ? 9 : 11;
+    // Irregular lengths, like hand-drawn rays
+    float[] lenPattern = tiny ? new[] { 0.55f, 0.45f } : new[] { 0.62f, 0.50f, 0.66f, 0.54f, 0.47f, 0.60f, 0.52f, 0.64f, 0.49f, 0.58f };
+    float w0 = s * (tiny ? 0.075f : small ? 0.05f : 0.038f);   // width near the centre
+    float w1 = s * (tiny ? 0.05f : small ? 0.032f : 0.024f);   // width at the tip
+    using (var tb = new SolidBrush(terra)) {
+      for (int i = 1; i < rays; i++) {
+        float a = needleDeg + 360f * i / rays;
+        Spoke(g, tb, cx, cy, r * 0.12f, r * lenPattern[(i - 1) % lenPattern.Length], w0, w1, a);
       }
     }
+    // Needle ray: red, longer, a bit thicker at the base
+    using (var nb = new SolidBrush(red))
+      Spoke(g, nb, cx, cy, 0, r * (tiny ? 0.8f : 0.76f), w0 * 2.2f, w1 * 1.4f, needleDeg);
+    // Small hub in terracotta so all rays meet in one point
+    float hub = s * (tiny ? 0.07f : 0.05f);
+    using (var hb = new SolidBrush(terra)) g.FillEllipse(hb, cx - hub, cy - hub, hub * 2, hub * 2);
     g.Dispose(); return bmp;
   }
   public static void SaveIco(string path, int[] sizes, string preview) {
