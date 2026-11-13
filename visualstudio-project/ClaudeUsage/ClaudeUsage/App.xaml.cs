@@ -30,8 +30,8 @@ public partial class App : System.Windows.Application
     private LiveWidget? _liveWidget;
 
     // Adaptive polling
-    private const int PollNormal = 420;       // 7 min
-    private const int PollFast = 300;         // 5 min
+    private const int PollNormal = 180;       // 3 min
+    private const int PollFast = 180;         // 3 min (must not be slower than normal)
     private const int PollIdle = 1200;        // 20 min
     private const int PollError = 60;         // 1 min after errors
     private const int PollFastExtra = 2;      // Extra fast polls after usage increase
