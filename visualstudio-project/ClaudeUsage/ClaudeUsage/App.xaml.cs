@@ -332,12 +332,15 @@ public partial class App : System.Windows.Application
         path.CloseFigure();
         g.FillPath(bgBrush, path);
 
-        // Digits as an outline scaled to fill the square. A condensed face lets
-        // two digits be much taller than with a regular-width font.
+        // Digits as an outline scaled to fill the square. Segoe UI Bold, narrowed
+        // horizontally, so two digits are tall while keeping familiar shapes
+        // (condensed faces like Bahnschrift have an open-top "4" that reads badly at 16px).
+        const float squeeze = 0.78f;
         var text = Math.Clamp(percentage, 0, 999).ToString();
-        using var family = GetIconFontFamily();
+        var (family, style) = GetIconFont();
+        using var _ = family;
         using var textPath = new Drawing.Drawing2D.GraphicsPath();
-        textPath.AddString(text, family, (int)Drawing.FontStyle.Regular, 100f,
+        textPath.AddString(text, family, (int)style, 100f,
             Drawing.PointF.Empty, Drawing.StringFormat.GenericTypographic);
 
         var b = textPath.GetBounds();
@@ -345,10 +348,11 @@ public partial class App : System.Windows.Application
         {
             var maxW = size - 1.5f;
             var maxH = size - 3f;
-            var scale = Math.Min(maxW / b.Width, maxH / b.Height);
+            var scaleY = Math.Min(maxW / (b.Width * squeeze), maxH / b.Height);
+            var scaleX = scaleY * squeeze;
             using var m = new Drawing.Drawing2D.Matrix();
             m.Translate(-(b.X + b.Width / 2), -(b.Y + b.Height / 2), Drawing.Drawing2D.MatrixOrder.Append);
-            m.Scale(scale, scale, Drawing.Drawing2D.MatrixOrder.Append);
+            m.Scale(scaleX, scaleY, Drawing.Drawing2D.MatrixOrder.Append);
             m.Translate(size / 2f, size / 2f, Drawing.Drawing2D.MatrixOrder.Append);
             textPath.Transform(m);
 
@@ -359,20 +363,19 @@ public partial class App : System.Windows.Application
         return Drawing.Icon.FromHandle(bitmap.GetHicon());
     }
 
-    private static Drawing.FontFamily GetIconFontFamily()
+    private static (Drawing.FontFamily family, Drawing.FontStyle style) GetIconFont()
     {
-        // Bahnschrift ships with Windows 10 1709+; fall back to Segoe UI.
-        foreach (var name in new[] { "Bahnschrift SemiBold Condensed", "Bahnschrift SemiBold", "Segoe UI Semibold" })
+        foreach (var name in new[] { "Segoe UI", "Arial" })
         {
             try
             {
                 var f = new Drawing.FontFamily(name);
-                if (f.IsStyleAvailable(Drawing.FontStyle.Regular)) return f;
+                if (f.IsStyleAvailable(Drawing.FontStyle.Bold)) return (f, Drawing.FontStyle.Bold);
                 f.Dispose();
             }
             catch (ArgumentException) { }
         }
-        return new Drawing.FontFamily(Drawing.Text.GenericFontFamilies.SansSerif);
+        return (new Drawing.FontFamily(Drawing.Text.GenericFontFamilies.SansSerif), Drawing.FontStyle.Bold);
     }
 
     private Drawing.Color GetColorForUsage(double utilization)
